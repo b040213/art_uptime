@@ -16,9 +16,11 @@ INTERVAL = "1h"
 ATR_PERIOD = 14
 atr_cache = {symbol: {"value": None, "last_sent": None} for symbol in SYMBOLS}
 
-def send_discord_msg(msg: str):
+async def send_discord_msg(msg: str):
     try:
-        requests.post(DISCORD_WEBHOOK_URL, json={"content": msg})
+        async with httpx.AsyncClient() as client:
+            r = await client.post(DISCORD_WEBHOOK_URL, json={"content": msg})
+            print(f"Discord 發訊狀態碼: {r.status_code}")
     except Exception as e:
         print(f"❌ 傳送 Discord 訊息錯誤：{e}")
 
@@ -103,7 +105,7 @@ async def fetch_fear_greed_index():
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(url)
-            data = response.json()
+            data = await response.json()
             if not data.get("data"):
                 print("⚠️ data 欄位為空或不存在")
                 return None
@@ -161,7 +163,7 @@ async def fear_greed_job():
         else:
             msg = "⚠️ 無法判斷恐懼與貪婪指數狀態"
 
-        send_discord_msg(msg)
+        await send_discord_msg(msg)
         await asyncio.sleep(12 * 3600)
         
 # Flask App
@@ -189,6 +191,7 @@ if __name__ == "__main__":
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
 
 
 
