@@ -3,12 +3,14 @@ import datetime
 import pandas as pd
 import requests
 from bingx_py import BingXAsyncClient
+from flask import Flask
+import threading
+import os
 
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1387480183698886777/RAzRv4VECjgloChid-aL0vg24DnEqpAHw66ASMSLszpMJTNxm9djACseKE4x7kjydD63"
 API_KEY = "L9ywGJGME1uqTkIRd1Od08IvXyWCCyA2YKGwMPnde8BWOmm8gAC5xCdGAZdXFWZMt1euiT574cgAvQdQTw"
 API_SECRET = "NYY1OfADXhu26a6F4Tw67RbHDvJcQ2bGOcQWOI1vXccWRoutdIdfsvxyxVtdLxZAGFYn9eYZN6RX7w2fQ"
-
-SYMBOLS = []  # 輸入要監控的交易對
+SYMBOLS = []  # 你的幣種清單
 INTERVAL = "1h"
 ATR_PERIOD = 14
 atr_cache = {symbol: {"value": None, "last_sent": None} for symbol in SYMBOLS}
@@ -95,5 +97,25 @@ async def scheduler():
             send_discord_msg(f"❌ ATR 更新時出錯：{str(e)}")
         await asyncio.sleep(300)
 
-if __name__ == "__main__":
+# Flask App
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "ATR 更新服務運作中。"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
+def run_asyncio_loop():
     asyncio.run(scheduler())
+
+if __name__ == "__main__":
+    # 用 Thread 方式同時跑 Flask 和 asyncio
+    t1 = threading.Thread(target=run_flask)
+    t1.start()
+
+    t2 = threading.Thread(target=run_asyncio_loop)
+    t2.start()
+
