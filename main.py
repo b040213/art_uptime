@@ -4,29 +4,21 @@ import pandas as pd
 import requests
 from bingx_py import BingXAsyncClient
 
-# ✅ Discord Webhook
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1387480183698886777/RAzRv4VECjgloChid-aL0vg24DnEqpAHw66ASMSLszpMJTNxm9djACseKE4x7kjydD63"
-
-# ✅ BingX API 金鑰
 API_KEY = "L9ywGJGME1uqTkIRd1Od08IvXyWCCyA2YKGwMPnde8BWOmm8gAC5xCdGAZdXFWZMt1euiT574cgAvQdQTw"
 API_SECRET = "NYY1OfADXhu26a6F4Tw67RbHDvJcQ2bGOcQWOI1vXccWRoutdIdfsvxyxVtdLxZAGFYn9eYZN6RX7w2fQ"
 
-# ✅ 幣種與 ATR 設定
-SYMBOLS = []
+SYMBOLS = []  # 輸入要監控的交易對
 INTERVAL = "1h"
 ATR_PERIOD = 14
 atr_cache = {symbol: {"value": None, "last_sent": None} for symbol in SYMBOLS}
 
-
-# ✅ 傳送 Discord 訊息
 def send_discord_msg(msg: str):
     try:
         requests.post(DISCORD_WEBHOOK_URL, json={"content": msg})
     except Exception as e:
         print(f"❌ 傳送 Discord 訊息錯誤：{e}")
 
-
-# ✅ 使用 BingXAsyncClient 抓取並回傳格式化後的 DataFrame
 async def fetch_klines_bingx(symbol: str, interval: str = "1h", limit: int = 100) -> pd.DataFrame:
     async with BingXAsyncClient(api_key=API_KEY, api_secret=API_SECRET) as client:
         try:
@@ -48,8 +40,6 @@ async def fetch_klines_bingx(symbol: str, interval: str = "1h", limit: int = 100
             print(f"⚠️ {symbol} 抓取錯誤: {e}")
             return None
 
-
-# ✅ 計算 ATR
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> float:
     high = df["high"]
     low = df["low"]
@@ -63,17 +53,22 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> float:
     atr = tr.rolling(window=period).mean()
     return atr.iloc[-1]
 
-
-# ✅ 更新 ATR 並通知
 async def update_atr_and_notify():
     now = datetime.datetime.now()
 
+    if not SYMBOLS:
+        print(f"{now} ⚠️ SYMBOLS 清單為空，10秒後重試")
+        await asyncio.sleep(10)
+        return
+
     for symbol in SYMBOLS:
         df = await fetch_klines_bingx(symbol, interval=INTERVAL)
-        print(f"symbol={symbol} df_len={len(df) if df is not None else 'None'}")
+        print(f"{now} symbol={symbol} df_len={len(df) if df is not None else 'None'}")
 
         if df is None or len(df) < ATR_PERIOD + 1:
+            print(f"{now} ⚠️ `{symbol}` 無法取得有效 K 線資料，60秒後重試")
             send_discord_msg(f"⚠️ `{symbol}` 無法取得有效 K 線資料")
+            await asyncio.sleep(60)
             continue
 
         atr = calculate_atr(df, ATR_PERIOD)
@@ -90,19 +85,15 @@ async def update_atr_and_notify():
 
         elif last_sent_time is None or (now - last_sent_time).seconds >= 900:
             atr_cache[symbol]["last_sent"] = now
-            # send_discord_msg(f"ℹ️ `{symbol}` ATR 維持 {atr_str}（{time_str}）")
 
-
-# ✅ 排程器
 async def scheduler():
+    print(f"{datetime.datetime.now()} 程式啟動完成，開始進入排程迴圈")
     while True:
         try:
             await update_atr_and_notify()
         except Exception as e:
             send_discord_msg(f"❌ ATR 更新時出錯：{str(e)}")
-        await asyncio.sleep(300)  # 每 5 分鐘更新一次
+        await asyncio.sleep(300)
 
-
-# ✅ 啟動
 if __name__ == "__main__":
     asyncio.run(scheduler())
