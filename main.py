@@ -104,7 +104,7 @@ async def fetch_fear_greed_index():
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(url)
             data = response.json()
-            print("抓到的資料:", data)   # 加印
+           send_discord_msg("抓到的資料:", data)   # 加印
             if not data.get("data"):
                 print("⚠️ data 欄位為空或不存在")
                 return None
@@ -190,6 +190,7 @@ if __name__ == "__main__":
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
 
 
 
