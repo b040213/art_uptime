@@ -97,7 +97,7 @@ async def scheduler():
         try:
             await update_atr_and_notify()
         except Exception as e:
-            send_discord_msg(f"❌ ATR 更新時出錯：{str(e)}")
+            await send_discord_msg(f"❌ ATR 更新時出錯：{str(e)}")
         await asyncio.sleep(300)
 
 async def fetch_fear_greed_index():
@@ -107,7 +107,7 @@ async def fetch_fear_greed_index():
             response = await client.get(url)
             data = await response.json()
             if not data.get("data"):
-                send_discord_msg("⚠️ data 欄位為空或不存在")
+                await send_discord_msg("⚠️ data 欄位為空或不存在")
                 return None
             latest = data["data"][0]
 
@@ -120,7 +120,7 @@ async def fetch_fear_greed_index():
                 "value_classification": latest["value_classification"]
             }
     except Exception as e:
-        send_discord_msg(f"⚠️ 抓取恐懼與貪婪指數失敗: {e}")
+        await send_discord_msg(f"⚠️ 抓取恐懼與貪婪指數失敗: {e}")
         return None
 
 async def fear_greed_job():
@@ -129,14 +129,14 @@ async def fear_greed_job():
         fg_data = await fetch_fear_greed_index()
 
         if fg_data is None:
-            send_discord_msg("⚠️ 無法取得恐懼與貪婪指數資料，跳過此次更新。")
+            await send_discord_msg("⚠️ 無法取得恐懼與貪婪指數資料，跳過此次更新。")
             await asyncio.sleep(60)  # 失敗時延遲一下再重試
             continue
 
         try:
             x = int(fg_data['value'])
         except Exception as e:
-            send_discord_msg(f"⚠️ 解析恐懼與貪婪指數失敗: {e}")
+            await send_discord_msg(f"⚠️ 解析恐懼與貪婪指數失敗: {e}")
             await asyncio.sleep(60)
             continue
 
@@ -191,6 +191,7 @@ if __name__ == "__main__":
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
 
 
 
