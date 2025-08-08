@@ -1,3 +1,4 @@
+flask
 pandas
 requests
-bingx_py
+bingx-py
