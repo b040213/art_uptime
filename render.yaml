@@ -1,6 +1,9 @@
 services:
-  - type: worker
+  - type: web
     name: atr_update
-    env: python
+    runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
+    envVars:
+      - key: PORT
+        value: 10000
