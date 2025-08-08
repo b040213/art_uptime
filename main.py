@@ -3,7 +3,7 @@ import datetime
 import pandas as pd
 import requests
 from bingx_py import BingXAsyncClient
-from flask import Flask
+#from flask import Flask
 import threading
 import os
 
@@ -96,9 +96,62 @@ async def scheduler():
         except Exception as e:
             send_discord_msg(f"❌ ATR 更新時出錯：{str(e)}")
         await asyncio.sleep(300)
+async def fetch_fear_greed_index():
+    url = "https://api.alternative.me/fng/"
+    try:
+        loop = asyncio.get_running_loop()
+        response = await loop.run_in_executor(None, lambda: requests.get(url, timeout=10))
+        data = response.json()
+        latest = data["data"][0]
+
+        # 轉 timestamp 為日期字串 YYYY-MM-DD
+        ts = int(latest["timestamp"])
+        data_date = datetime.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+
+        return {
+            "data_date": data_date,
+            "value": latest["value"],
+            "value_classification": latest["value_classification"]
+        }
+    except Exception as e:
+        print(f"⚠️ 抓取恐懼與貪婪指數失敗: {e}")
+        return None
+
+async def fear_greed_job():
+    while True:
+        now = datetime.datetime.now()
+        fg_data = await fetch_fear_greed_index()
+        x=int(fg_data['value'])
+        
+        if 26<=x<=74:
+            msg = (
+                f"現在日期 {now.month}/{now.day}  "
+                f"情緒指數日期 {fg_data['data_date']}  "
+                f"指數: {fg_data['value']} ({fg_data['value_classification']})"
+            )
+        elif x>=75:
+            msg = (
+                f"現在日期 {now.month}/{now.day}  "
+                f"情緒指數日期 {fg_data['data_date']}  "
+                f"指數: {fg_data['value']} ({fg_data['value_classification']})\n"
+                f"🔥🔥注意風險 , 極度貪婪🔥🔥"
+            )
+        elif x<=25:
+            msg = (
+                f"現在日期 {now.month}/{now.day}  "
+                f"情緒指數日期 {fg_data['data_date']}  "
+                f"指數: {fg_data['value']} ({fg_data['value_classification']})\n"
+                f"🧊🧊注意風險 , 極度恐懼🧊🧊"
+            )
+        
+        else:
+            send_discord_msg("⚠️ 無法取得恐懼與貪婪指數資料")
+        send_discord_msg(msg)
+        # 每12小時跑一次
+        await asyncio.sleep(12 * 3600)
 
 # Flask App
-app = Flask(__name__)
+'''app = Flask(__name__)
 
 @app.route("/")
 def home():
@@ -106,16 +159,22 @@ def home():
 
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)'''
+
+async def main():
+    task1 = asyncio.create_task(scheduler())
+    task2 = asyncio.create_task(fear_greed_job())
+    await asyncio.gather(task1, task2)
 
 def run_asyncio_loop():
-    asyncio.run(scheduler())
-
+    asyncio.run(main())
 if __name__ == "__main__":
     # 用 Thread 方式同時跑 Flask 和 asyncio
-    t1 = threading.Thread(target=run_flask)
-    t1.start()
+    #t1 = threading.Thread(target=run_flask)
+    #t1.start()
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
+
 
