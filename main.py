@@ -97,12 +97,17 @@ async def scheduler():
         except Exception as e:
             send_discord_msg(f"❌ ATR 更新時出錯：{str(e)}")
         await asyncio.sleep(300)
+
 async def fetch_fear_greed_index():
     url = "https://api.alternative.me/fng/"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(url)
             data = response.json()
+            print("抓到的資料:", data)   # 加印
+            if not data.get("data"):
+                print("⚠️ data 欄位為空或不存在")
+                return None
             latest = data["data"][0]
 
             ts = int(latest["timestamp"])
@@ -121,35 +126,45 @@ async def fear_greed_job():
     while True:
         now = datetime.datetime.now()
         fg_data = await fetch_fear_greed_index()
-        x=int(fg_data['value'])
-        
-        if 26<=x<=74:
+
+        if fg_data is None:
+            print("⚠️ 無法取得恐懼與貪婪指數資料，跳過此次更新。")
+            await asyncio.sleep(60)  # 失敗時延遲一下再重試
+            continue
+
+        try:
+            x = int(fg_data['value'])
+        except Exception as e:
+            print(f"⚠️ 解析恐懼與貪婪指數失敗: {e}")
+            await asyncio.sleep(60)
+            continue
+
+        if 26 <= x <= 74:
             msg = (
                 f"現在日期 {now.month}/{now.day}  "
                 f"情緒指數日期 {fg_data['data_date']}  "
                 f"指數: {fg_data['value']} ({fg_data['value_classification']})"
             )
-        elif x>=75:
+        elif x >= 75:
             msg = (
                 f"現在日期 {now.month}/{now.day}  "
                 f"情緒指數日期 {fg_data['data_date']}  "
                 f"指數: {fg_data['value']} ({fg_data['value_classification']})\n"
                 f"🔥🔥注意風險 , 極度貪婪🔥🔥"
             )
-        elif x<=25:
+        elif x <= 25:
             msg = (
                 f"現在日期 {now.month}/{now.day}  "
                 f"情緒指數日期 {fg_data['data_date']}  "
                 f"指數: {fg_data['value']} ({fg_data['value_classification']})\n"
                 f"🧊🧊注意風險 , 極度恐懼🧊🧊"
             )
-        
         else:
-            send_discord_msg("⚠️ 無法取得恐懼與貪婪指數資料")
-        send_discord_msg(msg)
-        # 每12小時跑一次
-        await asyncio.sleep(12 * 3600)
+            msg = "⚠️ 無法判斷恐懼與貪婪指數狀態"
 
+        send_discord_msg(msg)
+        await asyncio.sleep(12 * 3600)
+        
 # Flask App
 app = Flask(__name__)
 
@@ -175,6 +190,7 @@ if __name__ == "__main__":
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
 
 
 
