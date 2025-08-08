@@ -3,7 +3,7 @@ import datetime
 import pandas as pd
 import requests
 from bingx_py import BingXAsyncClient
-#from flask import Flask
+from flask import Flask
 import threading
 import os
 
@@ -151,7 +151,7 @@ async def fear_greed_job():
         await asyncio.sleep(12 * 3600)
 
 # Flask App
-'''app = Flask(__name__)
+app = Flask(__name__)
 
 @app.route("/")
 def home():
@@ -159,7 +159,7 @@ def home():
 
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)'''
+    app.run(host="0.0.0.0", port=port)
 
 async def main():
     task1 = asyncio.create_task(scheduler())
@@ -175,6 +175,7 @@ if __name__ == "__main__":
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
 
 
 
