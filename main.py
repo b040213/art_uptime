@@ -170,11 +170,12 @@ def run_asyncio_loop():
     asyncio.run(main())
 if __name__ == "__main__":
     # 用 Thread 方式同時跑 Flask 和 asyncio
-    #t1 = threading.Thread(target=run_flask)
-    #t1.start()
+    t1 = threading.Thread(target=run_flask)
+    t1.start()
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
 
 
 
