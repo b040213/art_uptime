@@ -6,6 +6,7 @@ from bingx_py import BingXAsyncClient
 from flask import Flask
 import threading
 import os
+import httpx
 
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1387480183698886777/RAzRv4VECjgloChid-aL0vg24DnEqpAHw66ASMSLszpMJTNxm9djACseKE4x7kjydD63"
 API_KEY = "L9ywGJGME1uqTkIRd1Od08IvXyWCCyA2YKGwMPnde8BWOmm8gAC5xCdGAZdXFWZMt1euiT574cgAvQdQTw"
@@ -99,20 +100,19 @@ async def scheduler():
 async def fetch_fear_greed_index():
     url = "https://api.alternative.me/fng/"
     try:
-        loop = asyncio.get_running_loop()
-        response = await loop.run_in_executor(None, lambda: requests.get(url, timeout=10))
-        data = response.json()
-        latest = data["data"][0]
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(url)
+            data = response.json()
+            latest = data["data"][0]
 
-        # 轉 timestamp 為日期字串 YYYY-MM-DD
-        ts = int(latest["timestamp"])
-        data_date = datetime.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+            ts = int(latest["timestamp"])
+            data_date = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).strftime("%Y-%m-%d")
 
-        return {
-            "data_date": data_date,
-            "value": latest["value"],
-            "value_classification": latest["value_classification"]
-        }
+            return {
+                "data_date": data_date,
+                "value": latest["value"],
+                "value_classification": latest["value_classification"]
+            }
     except Exception as e:
         print(f"⚠️ 抓取恐懼與貪婪指數失敗: {e}")
         return None
@@ -175,6 +175,7 @@ if __name__ == "__main__":
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
 
 
 
