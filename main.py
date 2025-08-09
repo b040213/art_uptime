@@ -11,7 +11,7 @@ import httpx
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1387480183698886777/RAzRv4VECjgloChid-aL0vg24DnEqpAHw66ASMSLszpMJTNxm9djACseKE4x7kjydD63"
 API_KEY = "L9ywGJGME1uqTkIRd1Od08IvXyWCCyA2YKGwMPnde8BWOmm8gAC5xCdGAZdXFWZMt1euiT574cgAvQdQTw"
 API_SECRET = "NYY1OfADXhu26a6F4Tw67RbHDvJcQ2bGOcQWOI1vXccWRoutdIdfsvxyxVtdLxZAGFYn9eYZN6RX7w2fQ"
-SYMBOLS = ["SUI-USDT","1000PEPE-USDT"]  # 你的幣種清單
+SYMBOLS = ["HYPE-USDT","1000PEPE-USDT"]  # 你的幣種清單
 INTERVAL = "1h"
 ATR_PERIOD = 14
 atr_cache = {symbol: {"value": None, "last_sent": None} for symbol in SYMBOLS}
@@ -72,7 +72,7 @@ async def update_atr_and_notify():
 
         if df is None or len(df) < ATR_PERIOD + 1:
             print(f"{now} ⚠️ `{symbol}` 無法取得有效 K 線資料，60秒後重試")
-            send_discord_msg(f"⚠️ `{symbol}` 無法取得有效 K 線資料")
+            await send_discord_msg(f"⚠️ `{symbol}` 無法取得有效 K 線資料")
             await asyncio.sleep(60)
             continue
 
@@ -86,7 +86,7 @@ async def update_atr_and_notify():
         if previous_atr is None or atr > previous_atr:
             atr_cache[symbol]["value"] = atr
             atr_cache[symbol]["last_sent"] = now
-            send_discord_msg(f"📈 `{symbol}` ATR 更新為 {atr_str}（{time_str}）")
+            await send_discord_msg(f"📈 `{symbol}` ATR 更新為 {atr_str}（{time_str}）")
 
         elif last_sent_time is None or (now - last_sent_time).seconds >= 900:
             atr_cache[symbol]["last_sent"] = now
@@ -104,23 +104,38 @@ async def fetch_fear_greed_index():
     url = "https://api.alternative.me/fng/"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.get(url)
-            data = await response.json()
-            if not data.get("data"):
-                await send_discord_msg("⚠️ data 欄位為空或不存在")
-                return None
-            latest = data["data"][0]
+            for _ in range(3):  # 最多重試 3 次
+                response = await client.get(url)
+                if response.status_code != 200:
+                    print(f"⚠️ API 回應碼異常: {response.status_code}")
+                    await asyncio.sleep(2)
+                    continue
 
-            ts = int(latest["timestamp"])
-            data_date = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).strftime("%Y-%m-%d")
+                # 正確解析 JSON（不要 await）
+                data = response.json()
+                print("原始 JSON:", data)
 
-            return {
-                "data_date": data_date,
-                "value": latest["value"],
-                "value_classification": latest["value_classification"]
-            }
+                if not data.get("data"):
+                    print("⚠️ API data 欄位為空，重試中...")
+                    await asyncio.sleep(2)
+                    continue
+
+                latest = data["data"][0]
+                ts = int(latest["timestamp"])
+                data_date = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).strftime("%Y-%m-%d")
+
+                return {
+                    "data_date": data_date,
+                    "value": latest["value"],
+                    "value_classification": latest["value_classification"]
+                }
+
+            # 如果三次都失敗
+            await send_discord_msg("❌ Fear & Greed API 連續 3 次抓取失敗")
+            return None
+
     except Exception as e:
-        await send_discord_msg(f"⚠️ 抓取恐懼與貪婪指數失敗: {e}")
+        await send_discord_msg(f"❌ 抓取 Fear & Greed 發生錯誤: {e}")
         return None
 
 async def fear_greed_job():
@@ -129,7 +144,7 @@ async def fear_greed_job():
         fg_data = await fetch_fear_greed_index()
 
         if fg_data is None:
-            await send_discord_msg("⚠️ 無法取得恐懼與貪婪指數資料，跳過此次更新。")
+            #await send_discord_msg("⚠️ 無法取得恐懼與貪婪指數資料，跳過此次更新。")
             await asyncio.sleep(60)  # 失敗時延遲一下再重試
             continue
 
