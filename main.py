@@ -11,7 +11,7 @@ import httpx
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1387480183698886777/RAzRv4VECjgloChid-aL0vg24DnEqpAHw66ASMSLszpMJTNxm9djACseKE4x7kjydD63"
 API_KEY = "L9ywGJGME1uqTkIRd1Od08IvXyWCCyA2YKGwMPnde8BWOmm8gAC5xCdGAZdXFWZMt1euiT574cgAvQdQTw"
 API_SECRET = "NYY1OfADXhu26a6F4Tw67RbHDvJcQ2bGOcQWOI1vXccWRoutdIdfsvxyxVtdLxZAGFYn9eYZN6RX7w2fQ"
-SYMBOLS = []  # 你的幣種清單
+SYMBOLS = ["SUI-USDT","1000PEPE-USDT"]  # 你的幣種清單
 INTERVAL = "1h"
 ATR_PERIOD = 14
 atr_cache = {symbol: {"value": None, "last_sent": None} for symbol in SYMBOLS}
@@ -191,6 +191,7 @@ if __name__ == "__main__":
 
     t2 = threading.Thread(target=run_asyncio_loop)
     t2.start()
+
 
 
 
